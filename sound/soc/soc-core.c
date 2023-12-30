@@ -832,6 +832,22 @@ static int soc_dai_link_sanity_check(struct snd_soc_card *card,
 	struct snd_soc_dai_link_component *cpu, *codec, *platform;
 
 	for_each_link_codecs(link, i, codec) {
+
+
+		if (codec->name)
+		{
+			dev_dbg(card->dev, "ASoc: codec name is %s\n", codec->name );
+		}
+		if (codec->of_node)
+		{
+			dev_dbg(card->dev, "ASoc: codec of_node is set. Its full_name is %s\n",
+					codec->of_node->full_name );
+		}
+		else
+		{
+			dev_dbg(card->dev, "ASoc: codec of_node is NOT set\n" );
+		}
+
 		/*
 		 * Codec must be specified by 1 of name or OF node,
 		 * not both or neither.

@@ -335,8 +335,8 @@ static int xlnx_formatter_set_sysclk(struct snd_soc_component *component,
 	return 0;
 }
 
-static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
-				   struct snd_pcm_substream *substream)
+static int xlnx_formatter_pcm_open(	struct snd_soc_component *component,
+				   					struct snd_pcm_substream *substream)
 {
 	int err;
 	u32 val, data_format_mode;
@@ -350,18 +350,26 @@ static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
 
 	adata = dev_get_drvdata(component->dev);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-	    !adata->mm2s_presence)
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && !adata->mm2s_presence)
+	{
+		dev_err(component->dev, "xlnx_formatter_pcm_open: Playback selected with no MM2S presence\n");
 		return -ENODEV;
-	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE &&
-		 !adata->s2mm_presence)
+	}
+	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE && !adata->s2mm_presence)
+	{
+		dev_err(component->dev, "xlnx_formatter_pcm_open: Capture selected with no S2MM presence\n");
 		return -ENODEV;
+	}
 
 	stream_data = kzalloc(sizeof(*stream_data), GFP_KERNEL);
 	if (!stream_data)
+	{
+		dev_err(component->dev, "xlnx_formatter_pcm_open: kzalloc no memory\n");
 		return -ENOMEM;
+	}
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	{
 		ch_count_mask = CFG_MM2S_CH_MASK;
 		ch_count_shift = CFG_MM2S_CH_SHIFT;
 		data_xfer_mode = CFG_MM2S_XFER_MASK;
@@ -369,8 +377,9 @@ static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
 		data_format_mode = CFG_MM2S_PKG_MASK;
 		stream_data->mmio = adata->mmio + XLNX_MM2S_OFFSET;
 		adata->play_stream = substream;
-
-	} else {
+	}
+	else
+	{
 		ch_count_mask = CFG_S2MM_CH_MASK;
 		ch_count_shift = CFG_S2MM_CH_SHIFT;
 		data_xfer_mode = CFG_S2MM_XFER_MASK;
@@ -402,27 +411,23 @@ static int xlnx_formatter_pcm_open(struct snd_soc_component *component,
 					 SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
 					 XLNX_AUD_ALIGN_BYTES);
 	if (err) {
-		dev_err(component->dev,
-			"Unable to set constraint on period bytes\n");
+		dev_err(component->dev, "Unable to set constraint on period bytes\n");
 		return err;
 	}
 
 	/* Resize the buffer bytes as divisible by 64 */
-	err = snd_pcm_hw_constraint_step(runtime, 0,
-					 SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
-					 XLNX_AUD_ALIGN_BYTES);
+	err = snd_pcm_hw_constraint_step(	runtime, 0,
+					 					SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+					 					XLNX_AUD_ALIGN_BYTES);
 	if (err) {
-		dev_err(component->dev,
-			"Unable to set constraint on buffer bytes\n");
+		dev_err(component->dev, "Unable to set constraint on buffer bytes\n");
 		return err;
 	}
 
 	/* Set periods as integer multiple */
-	err = snd_pcm_hw_constraint_integer(runtime,
-					    SNDRV_PCM_HW_PARAM_PERIODS);
+	err = snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (err < 0) {
-		dev_err(component->dev,
-			"Unable to set constraint on periods to be integer\n");
+		dev_err(component->dev, "Unable to set constraint on periods to be integer\n");
 		return err;
 	}
 
@@ -456,9 +461,9 @@ err_reset:
 	return 0;
 }
 
-static snd_pcm_uframes_t
-xlnx_formatter_pcm_pointer(struct snd_soc_component *component,
-			   struct snd_pcm_substream *substream)
+
+static snd_pcm_uframes_t xlnx_formatter_pcm_pointer(struct snd_soc_component *component,
+			   										struct snd_pcm_substream *substream)
 {
 	u32 pos;
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -471,6 +476,7 @@ xlnx_formatter_pcm_pointer(struct snd_soc_component *component,
 
 	return bytes_to_frames(runtime, pos);
 }
+
 
 static int xlnx_formatter_pcm_hw_params(struct snd_soc_component *component,
 					struct snd_pcm_substream *substream,
@@ -493,18 +499,22 @@ static int xlnx_formatter_pcm_hw_params(struct snd_soc_component *component,
 
 	active_ch = params_channels(params);
 	if (active_ch > stream_data->ch_limit)
+	{
+		dev_err( component->dev, "xlnx_formatter_pcm_hw_params: active_ch %u > ch_limit %u\n", active_ch, stream_data->ch_limit);
 		return -EINVAL;
+	}
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
-	    adata->sysclk) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && adata->sysclk)
+	{
 		unsigned int mclk_fs = adata->sysclk / params_rate(params);
 
-		if (adata->sysclk % params_rate(params) != 0) {
-			dev_warn(component->dev, "sysclk %u not divisible by rate %u\n",
-				 adata->sysclk, params_rate(params));
+		if (adata->sysclk % params_rate(params) != 0)
+		{
+			dev_err(component->dev, "sysclk %u not divisible by rate %u\n", adata->sysclk, params_rate(params));
 			return -EINVAL;
 		}
 
+		dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write %u to XLNX_AUD_FS_MULT at 0x%08x\n", mclk_fs, stream_data->mmio + XLNX_AUD_FS_MULTIPLIER );
 		writel(mclk_fs, stream_data->mmio + XLNX_AUD_FS_MULTIPLIER);
 	}
 
@@ -532,13 +542,18 @@ static int xlnx_formatter_pcm_hw_params(struct snd_soc_component *component,
 	size = params_buffer_bytes(params);
 	status = snd_pcm_lib_malloc_pages(substream, size);
 	if (status < 0)
+	{
+		dev_err(component->dev, "xlnx_formatter_pcm_hw_params: snd_pcm_lib_malloc_pages failed\n" );
 		return status;
+	}
 
 	stream_data->buffer_size = size;
 
 	low = lower_32_bits(runtime->dma_addr);
 	high = upper_32_bits(runtime->dma_addr);
+	dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write 0x%08x to XLNX_AUD_BUFF_ADDR_LSB at 0x%08x\n", low,  stream_data->mmio + XLNX_AUD_BUFF_ADDR_LSB );
 	iowrite32(low, stream_data->mmio + XLNX_AUD_BUFF_ADDR_LSB);
+	dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write 0x%08x to XLNX_AUD_BUFF_ADDR_MSB at 0x%08x\n", high, stream_data->mmio + XLNX_AUD_BUFF_ADDR_MSB );
 	iowrite32(high, stream_data->mmio + XLNX_AUD_BUFF_ADDR_MSB);
 
 	val = ioread32(stream_data->mmio + XLNX_AUD_CTRL);
@@ -564,22 +579,26 @@ static int xlnx_formatter_pcm_hw_params(struct snd_soc_component *component,
 
 	val &= ~AUD_CTRL_ACTIVE_CH_MASK;
 	val |= active_ch << AUD_CTRL_ACTIVE_CH_SHIFT;
+	dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write 0x%08x to XLNX_AUD_CTRL at 0x%08x\n", val, stream_data->mmio + XLNX_AUD_CTRL );
 	iowrite32(val, stream_data->mmio + XLNX_AUD_CTRL);
 
-	val = (params_periods(params) << PERIOD_CFG_PERIODS_SHIFT)
-		| params_period_bytes(params);
+	val = (params_periods(params) << PERIOD_CFG_PERIODS_SHIFT) | params_period_bytes(params);
+	dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write 0x%08x to XLNX_AUD_PERIOD_CONFIG at 0x%08x\n", val, stream_data->mmio + XLNX_AUD_PERIOD_CONFIG );
 	iowrite32(val, stream_data->mmio + XLNX_AUD_PERIOD_CONFIG);
 	bytes_per_ch = DIV_ROUND_UP(params_period_bytes(params), active_ch);
+	dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write 0x%08x to XLNX_BYTES_PER_CH at 0x%08x\n", bytes_per_ch, stream_data->mmio + XLNX_BYTES_PER_CH );
 	iowrite32(bytes_per_ch, stream_data->mmio + XLNX_BYTES_PER_CH);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	{
 		prv = snd_soc_card_get_drvdata(rtd->card);
-		iowrite32(prv->mclk_ratio,
-			  stream_data->mmio + XLNX_AUD_FS_MULTIPLIER);
+		dev_dbg(component->dev, "xlnx_formatter_pcm_hw_params: write %u to XLNX_AUD_FS_MULTIPLIER at 0x%08x\n", prv->mclk_ratio, stream_data->mmio + XLNX_AUD_FS_MULTIPLIER );
+		iowrite32(prv->mclk_ratio, stream_data->mmio + XLNX_AUD_FS_MULTIPLIER);
 	}
 
 	return 0;
 }
+
 
 static int xlnx_formatter_pcm_hw_free(struct snd_soc_component *component,
 				      struct snd_pcm_substream *substream)
@@ -587,32 +606,36 @@ static int xlnx_formatter_pcm_hw_free(struct snd_soc_component *component,
 	return snd_pcm_lib_free_pages(substream);
 }
 
-static int xlnx_formatter_pcm_trigger(struct snd_soc_component *component,
-				      struct snd_pcm_substream *substream, int cmd)
+
+static int xlnx_formatter_pcm_trigger(	struct snd_soc_component *component,
+				      					struct snd_pcm_substream *substream, int cmd)
 {
 	u32 val;
-	struct xlnx_pcm_stream_param *stream_data =
-			substream->runtime->private_data;
+	struct xlnx_pcm_stream_param *stream_data = substream->runtime->private_data;
 
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-	case SNDRV_PCM_TRIGGER_RESUME:
-		val = ioread32(stream_data->mmio + XLNX_AUD_CTRL);
-		val |= AUD_CTRL_DMA_EN_MASK;
-		iowrite32(val, stream_data->mmio + XLNX_AUD_CTRL);
-		break;
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-		val = ioread32(stream_data->mmio + XLNX_AUD_CTRL);
-		val &= ~AUD_CTRL_DMA_EN_MASK;
-		iowrite32(val, stream_data->mmio + XLNX_AUD_CTRL);
-		break;
+	switch (cmd)
+	{
+		case SNDRV_PCM_TRIGGER_START:
+		case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		case SNDRV_PCM_TRIGGER_RESUME:
+			val = ioread32(stream_data->mmio + XLNX_AUD_CTRL);
+			val |= AUD_CTRL_DMA_EN_MASK;
+			dev_dbg(component->dev, "xlnx_formatter_pcm_trigger: write 0x%08x to XLNX_AUD_CTRL at 0x%08x\n", val, stream_data->mmio + XLNX_AUD_CTRL );
+			iowrite32(val, stream_data->mmio + XLNX_AUD_CTRL);
+			break;
+
+		case SNDRV_PCM_TRIGGER_STOP:
+		case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		case SNDRV_PCM_TRIGGER_SUSPEND:
+			val = ioread32(stream_data->mmio + XLNX_AUD_CTRL);
+			val &= ~AUD_CTRL_DMA_EN_MASK;
+			iowrite32(val, stream_data->mmio + XLNX_AUD_CTRL);
+			break;
 	}
 
 	return 0;
 }
+
 
 static int xlnx_formatter_pcm_new(struct snd_soc_component *component,
 				  struct snd_soc_pcm_runtime *rtd)
@@ -640,8 +663,8 @@ static const struct snd_soc_component_driver xlnx_asoc_component = {
 	.pcm_construct	= xlnx_formatter_pcm_new,
 };
 
-static int configure_mm2s(struct xlnx_pcm_drv_data *aud_drv_data,
-			  struct platform_device *pdev)
+static int configure_mm2s(	struct xlnx_pcm_drv_data *aud_drv_data,
+			  				struct platform_device *pdev)
 {
 	int ret;
 	struct device *dev = &pdev->dev;
@@ -670,21 +693,17 @@ static int configure_mm2s(struct xlnx_pcm_drv_data *aud_drv_data,
 		goto axis_clk_err;
 	}
 
-	aud_drv_data->mm2s_irq = platform_get_irq_byname(pdev,
-							 "irq_mm2s");
+	aud_drv_data->mm2s_irq = platform_get_irq_byname(pdev, "irq_mm2s");
 	if (aud_drv_data->mm2s_irq < 0) {
 		ret = aud_drv_data->mm2s_irq;
 		goto mm2s_err;
 	}
-	ret = devm_request_irq(dev, aud_drv_data->mm2s_irq,
-			       xlnx_mm2s_irq_handler, 0,
-			       "xlnx_formatter_pcm_mm2s_irq", dev);
+	ret = devm_request_irq(dev, aud_drv_data->mm2s_irq, xlnx_mm2s_irq_handler, 0, "xlnx_formatter_pcm_mm2s_irq", dev);
 	if (ret) {
 		dev_err(dev, "xlnx audio mm2s irq request failed\n");
 		goto mm2s_err;
 	}
-	ret = xlnx_formatter_pcm_reset(aud_drv_data->mmio +
-				       XLNX_MM2S_OFFSET);
+	ret = xlnx_formatter_pcm_reset(aud_drv_data->mmio + XLNX_MM2S_OFFSET);
 	if (ret) {
 		dev_err(dev, "audio formatter reset failed\n");
 		goto mm2s_err;
@@ -704,6 +723,7 @@ static int configure_mm2s(struct xlnx_pcm_drv_data *aud_drv_data,
 	of_node_put(aud_drv_data->nodes[XLNX_PLAYBACK]);
 
 	aud_drv_data->mm2s_presence = true;
+
 	return 0;
 
 mm2s_err:

@@ -506,6 +506,7 @@ static int xlnx_snd_probe(struct platform_device *pdev)
 			 prv->xlnx_snd_dev_id);
 		card->name = buf;
 
+
 		ret = devm_snd_soc_register_card(card->dev, card);
 		if (ret) {
 			dev_err(card->dev, "%s registration failed\n",
