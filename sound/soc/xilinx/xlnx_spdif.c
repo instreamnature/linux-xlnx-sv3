@@ -127,8 +127,8 @@ static int xlnx_spdif_hw_params(struct snd_pcm_substream *substream,
 	dev_dbg(dai->dev, "xlnx_spdif_hw_params: ctx->aclk is %u\n", ctx->aclk);
 
 	clk_div = DIV_ROUND_CLOSEST(ctx->aclk, XSPDIF_MAX_CHANNELS *
-							    XSPDIF_AES_SAMPLE_WIDTH *
-				    			params_rate(params));
+											XSPDIF_AES_SAMPLE_WIDTH *
+											params_rate(params));
 
 	dev_dbg(dai->dev, "xlnx_spdif_hw_params: clk_div is %u\n", clk_div);
 
@@ -155,7 +155,9 @@ static int xlnx_spdif_hw_params(struct snd_pcm_substream *substream,
 		clk_cfg = CLK_DIV_BY_64;
 		break;
 	default:
+		dev_err(dai->dev, "xlnx_spdif_hw_params: clk_div is invalid. Clk_cfg not set\n" );
 		return -EINVAL;
+		break;
 	}
 
 	val = ioread32(ctx->base + XSPDIF_CONTROL_REG);

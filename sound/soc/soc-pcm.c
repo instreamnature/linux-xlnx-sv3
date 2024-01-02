@@ -42,8 +42,7 @@ static inline int _soc_pcm_ret(struct snd_soc_pcm_runtime *rtd,
 		break;
 	default:
 		dev_err(rtd->dev,
-			"ASoC: error at %s on %s: %d\n",
-			func, rtd->dai_link->name, ret);
+			"ASoC: error at %s on %s: %d\n", func, rtd->dai_link->name, ret);
 	}
 
 	return ret;
@@ -1044,8 +1043,7 @@ static int __soc_pcm_hw_params(struct snd_soc_pcm_runtime *rtd,
 			soc_pcm_codec_params_fixup(&codec_params,
 						   codec_dai->rx_mask);
 
-		ret = snd_soc_dai_hw_params(codec_dai, substream,
-					    &codec_params);
+		ret = snd_soc_dai_hw_params(codec_dai, substream, &codec_params);
 		if(ret < 0)
 			goto out;
 
